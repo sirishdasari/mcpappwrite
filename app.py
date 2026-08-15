@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -97,10 +98,14 @@ def delete_task(task_id: str) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    # Streamable HTTP is the transport we will use when the server is deployed.
-    # The stateless JSON mode is also convenient for a small personal server.
+    # Render provides the PORT environment variable. Bind to all interfaces
+    # so the public web service can receive traffic.
+    port = int(os.environ.get("PORT", "8000"))
+
     mcp.run(
         transport="streamable-http",
+        host="0.0.0.0",
+        port=port,
         stateless_http=True,
         json_response=True,
     )
