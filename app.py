@@ -45,13 +45,29 @@ def add_task(
 def list_tasks(
     completed: bool | None = None,
     category: str | None = None,
+    tags: str | None = None,
+    priority: int | None = None,
+    due_before: str | None = None,
+    due_after: str | None = None,
+    order: str = "asc",
     limit: int = 25,
+    offset: int = 0,
 ) -> dict[str, Any]:
-    """List Todo tasks, optionally filtered by completion state or category."""
+    """List Todo tasks with optional filters and pagination.
+
+    Filters: `completed`, `category`, `tags`, `priority`, `due_before`,
+    `due_after`. `order` controls sort direction on `dueDate` ("asc" or "desc").
+    """
     return service().list_tasks(
         completed=completed,
         category=category,
+        tags=tags,
+        priority=priority,
+        due_before=due_before,
+        due_after=due_after,
+        order=order,
         limit=limit,
+        offset=offset,
     )
 
 

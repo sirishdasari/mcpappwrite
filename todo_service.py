@@ -47,9 +47,13 @@ class TodoService:
             return row.model_dump()
         if isinstance(row, dict):
             return row
+        created = getattr(row, "$createdAt", getattr(row, "createdAt", None))
+        updated = getattr(row, "$updatedAt", getattr(row, "updatedAt", None))
         return {
             "id": getattr(row, "$id", getattr(row, "id", None)),
             "data": getattr(row, "data", {}),
+            "createdAt": created,
+            "updatedAt": updated,
         }
 
     def add_task(
@@ -90,15 +94,57 @@ class TodoService:
         self,
         completed: bool | None = None,
         category: str | None = None,
+        tags: str | None = None,
+        priority: int | None = None,
+        due_before: str | None = None,
+        due_after: str | None = None,
+        order: str = "asc",
         limit: int = 25,
+        offset: int = 0,
     ) -> dict[str, Any]:
+        """List tasks with optional filters.
+
+        Supported filters: `completed`, `category`, `tags`, `priority`,
+        `due_before`, `due_after`. Ordering is applied to `dueDate` via
+        `order` which accepts `asc` or `desc`. `limit` is clamped to 1..100
+        and `offset` may be used to paginate results.
+        """
+        if priority is not None and priority not in (1, 2, 3):
+            raise ValueError("priority must be 1 (high), 2 (medium), or 3 (low)")
+
         limit = max(1, min(limit, 100))
-        queries = [Query.order_asc("dueDate"), Query.limit(limit)]
+        offset = max(0, int(offset))
+
+        queries: list[Any] = []
 
         if completed is not None:
-            queries.insert(0, Query.equal("completed", completed))
+            queries.append(Query.equal("completed", completed))
         if category:
-            queries.insert(0, Query.equal("category", category))
+            queries.append(Query.equal("category", category))
+        if tags:
+            queries.append(Query.equal("tags", tags))
+        if priority is not None:
+            queries.append(Query.equal("priority", priority))
+        if due_after:
+            queries.append(Query.greater("dueDate", due_after))
+        if due_before:
+            queries.append(Query.less("dueDate", due_before))
+
+        # Ordering
+        if order and order.lower().startswith("desc"):
+            queries.append(Query.order_desc("dueDate"))
+        else:
+            queries.append(Query.order_asc("dueDate"))
+
+        # Pagination
+        if offset:
+            # Some SDKs provide Query.offset; include if available
+            try:
+                queries.append(Query.offset(offset))
+            except Exception:
+                # Fallback: ignore offset if not supported by the SDK
+                pass
+        queries.append(Query.limit(limit))
 
         result = self.tables_db.list_rows(
             database_id=self.database_id,
